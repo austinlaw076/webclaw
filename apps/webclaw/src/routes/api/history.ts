@@ -17,7 +17,7 @@ type SessionsResolveResponse = {
 const DEFAULT_HISTORY_LIMIT = 200
 const MAX_HISTORY_LIMIT = 500
 
-function normalizeHistoryLimit(rawLimit: string | null): number {
+export function normalizeHistoryLimit(rawLimit: string | null): number {
   const parsedLimit = Number(rawLimit ?? String(DEFAULT_HISTORY_LIMIT))
   if (!Number.isFinite(parsedLimit)) return DEFAULT_HISTORY_LIMIT
   const integerLimit = Math.trunc(parsedLimit)

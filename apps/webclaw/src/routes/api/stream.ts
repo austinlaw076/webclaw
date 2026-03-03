@@ -8,6 +8,22 @@ type StreamEventPayload = {
   stateVersion?: number
 }
 
+type StreamResources = {
+  heartbeat: ReturnType<typeof setInterval> | null
+  releaseClient: (() => void) | null
+}
+
+export function releaseStreamResources(
+  resources: StreamResources,
+): StreamResources {
+  const { heartbeat, releaseClient } = resources
+  if (heartbeat) {
+    clearInterval(heartbeat)
+  }
+  releaseClient?.()
+  return { heartbeat: null, releaseClient: null }
+}
+
 export const Route = createFileRoute('/api/stream')({
   server: {
     handlers: {
@@ -24,12 +40,12 @@ export const Route = createFileRoute('/api/stream')({
         const stream = new ReadableStream({
           start(controller) {
             function cleanup() {
-              if (heartbeat) {
-                clearInterval(heartbeat)
-                heartbeat = null
-              }
-              releaseClient?.()
-              releaseClient = null
+              const nextResources = releaseStreamResources({
+                heartbeat,
+                releaseClient,
+              })
+              heartbeat = nextResources.heartbeat
+              releaseClient = nextResources.releaseClient
             }
 
             function send(data: StreamEventPayload) {
@@ -119,12 +135,12 @@ export const Route = createFileRoute('/api/stream')({
           cancel() {
             if (closed) return
             closed = true
-            if (heartbeat) {
-              clearInterval(heartbeat)
-              heartbeat = null
-            }
-            releaseClient?.()
-            releaseClient = null
+            const nextResources = releaseStreamResources({
+              heartbeat,
+              releaseClient,
+            })
+            heartbeat = nextResources.heartbeat
+            releaseClient = nextResources.releaseClient
           },
         })
 

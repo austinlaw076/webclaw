@@ -257,6 +257,33 @@ type GatewayClientHandle = {
 
 const sharedGatewayClients = new Map<string, GatewayClientEntry>()
 
+type HandlerRegistry<TPayload> = {
+  subscribe: (handler: (payload: TPayload) => void) => () => void
+  emit: (payload: TPayload) => void
+  clear: () => void
+}
+
+export function createHandlerRegistry<TPayload>(): HandlerRegistry<TPayload> {
+  const handlers = new Set<(payload: TPayload) => void>()
+
+  return {
+    subscribe: function subscribe(handler) {
+      handlers.add(handler)
+      return function unsubscribe() {
+        handlers.delete(handler)
+      }
+    },
+    emit: function emit(payload) {
+      for (const handler of handlers) {
+        handler(payload)
+      }
+    },
+    clear: function clear() {
+      handlers.clear()
+    },
+  }
+}
+
 function getGatewayConfig() {
   const url = process.env.CLAWDBOT_GATEWAY_URL?.trim() || 'ws://127.0.0.1:18789'
   const token = process.env.CLAWDBOT_GATEWAY_TOKEN?.trim() || ''
@@ -399,8 +426,8 @@ function createGatewayClient(): GatewayClient {
   const ws = new WebSocket(url)
   let closed = false
   let connected = false
-  const onEventHandlers = new Set<(event: GatewayEventFrame) => void>()
-  const onErrorHandlers = new Set<(error: Error) => void>()
+  const onEventHandlers = createHandlerRegistry<GatewayEventFrame>()
+  const onErrorHandlers = createHandlerRegistry<Error>()
   const waiters = new Map<
     string,
     {
@@ -421,9 +448,7 @@ function createGatewayClient(): GatewayClient {
       const data = typeof evt.data === 'string' ? evt.data : ''
       const parsed = JSON.parse(data) as GatewayFrame
       if (parsed.type === 'event') {
-        for (const handler of onEventHandlers) {
-          handler(parsed)
-        }
+        onEventHandlers.emit(parsed)
         return
       }
       if (parsed.type !== 'res') return
@@ -441,9 +466,7 @@ function createGatewayClient(): GatewayClient {
     const error = new Error(
       `Gateway client error: ${String((err as any)?.message ?? err)}`,
     )
-    for (const handler of onErrorHandlers) {
-      handler(error)
-    }
+    onErrorHandlers.emit(error)
   }
 
   function handleClose(evt?: { code?: number; reason?: string }) {
@@ -517,17 +540,11 @@ function createGatewayClient(): GatewayClient {
   }
 
   function subscribeOnEvent(handler: (event: GatewayEventFrame) => void) {
-    onEventHandlers.add(handler)
-    return function unsubscribeOnEvent() {
-      onEventHandlers.delete(handler)
-    }
+    return onEventHandlers.subscribe(handler)
   }
 
   function subscribeOnError(handler: (error: Error) => void) {
-    onErrorHandlers.add(handler)
-    return function unsubscribeOnError() {
-      onErrorHandlers.delete(handler)
-    }
+    return onErrorHandlers.subscribe(handler)
   }
 
   function isClosed() {
