@@ -8,6 +8,22 @@ type StreamEventPayload = {
   stateVersion?: number
 }
 
+type StreamResources = {
+  heartbeat: ReturnType<typeof setInterval> | null
+  releaseClient: (() => void) | null
+}
+
+export function releaseStreamResources(
+  resources: StreamResources,
+): StreamResources {
+  const { heartbeat, releaseClient } = resources
+  if (heartbeat) {
+    clearInterval(heartbeat)
+  }
+  releaseClient?.()
+  return { heartbeat: null, releaseClient: null }
+}
+
 export const Route = createFileRoute('/api/stream')({
   server: {
     handlers: {
@@ -18,10 +34,20 @@ export const Route = createFileRoute('/api/stream')({
         const encoder = new TextEncoder()
 
         let releaseClient: (() => void) | null = null
+        let heartbeat: ReturnType<typeof setInterval> | null = null
         let closed = false
 
         const stream = new ReadableStream({
           start(controller) {
+            function cleanup() {
+              const nextResources = releaseStreamResources({
+                heartbeat,
+                releaseClient,
+              })
+              heartbeat = nextResources.heartbeat
+              releaseClient = nextResources.releaseClient
+            }
+
             function send(data: StreamEventPayload) {
               if (closed) return
               try {
@@ -30,11 +56,28 @@ export const Route = createFileRoute('/api/stream')({
                 )
               } catch {
                 closed = true
+                cleanup()
+                try {
+                  controller.close()
+                } catch {
+                  return
+                }
               }
             }
 
-            const heartbeat = setInterval(() => {
-              controller.enqueue(encoder.encode('event: ping\ndata: {}\n\n'))
+            heartbeat = setInterval(() => {
+              if (closed) return
+              try {
+                controller.enqueue(encoder.encode('event: ping\ndata: {}\n\n'))
+              } catch {
+                closed = true
+                cleanup()
+                try {
+                  controller.close()
+                } catch {
+                  return
+                }
+              }
             }, 15000)
 
             const key = sessionKey || friendlyId
@@ -79,8 +122,7 @@ export const Route = createFileRoute('/api/stream')({
               () => {
                 if (closed) return
                 closed = true
-                clearInterval(heartbeat)
-                releaseClient?.()
+                cleanup()
                 try {
                   controller.close()
                 } catch {
@@ -93,7 +135,12 @@ export const Route = createFileRoute('/api/stream')({
           cancel() {
             if (closed) return
             closed = true
-            releaseClient?.()
+            const nextResources = releaseStreamResources({
+              heartbeat,
+              releaseClient,
+            })
+            heartbeat = nextResources.heartbeat
+            releaseClient = nextResources.releaseClient
           },
         })
 

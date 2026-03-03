@@ -14,13 +14,23 @@ type SessionsResolveResponse = {
   key?: string
 }
 
+const DEFAULT_HISTORY_LIMIT = 200
+const MAX_HISTORY_LIMIT = 500
+
+export function normalizeHistoryLimit(rawLimit: string | null): number {
+  const parsedLimit = Number(rawLimit ?? String(DEFAULT_HISTORY_LIMIT))
+  if (!Number.isFinite(parsedLimit)) return DEFAULT_HISTORY_LIMIT
+  const integerLimit = Math.trunc(parsedLimit)
+  return Math.min(MAX_HISTORY_LIMIT, Math.max(1, integerLimit))
+}
+
 export const Route = createFileRoute('/api/history')({
   server: {
     handlers: {
       GET: async ({ request }) => {
         try {
           const url = new URL(request.url)
-          const limit = Number(url.searchParams.get('limit') || '200')
+          const limit = normalizeHistoryLimit(url.searchParams.get('limit'))
           const rawSessionKey = url.searchParams.get('sessionKey')?.trim()
           const friendlyId = url.searchParams.get('friendlyId')?.trim()
 
