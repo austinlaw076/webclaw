@@ -18,10 +18,20 @@ export const Route = createFileRoute('/api/stream')({
         const encoder = new TextEncoder()
 
         let releaseClient: (() => void) | null = null
+        let heartbeat: ReturnType<typeof setInterval> | null = null
         let closed = false
 
         const stream = new ReadableStream({
           start(controller) {
+            function cleanup() {
+              if (heartbeat) {
+                clearInterval(heartbeat)
+                heartbeat = null
+              }
+              releaseClient?.()
+              releaseClient = null
+            }
+
             function send(data: StreamEventPayload) {
               if (closed) return
               try {
@@ -30,11 +40,28 @@ export const Route = createFileRoute('/api/stream')({
                 )
               } catch {
                 closed = true
+                cleanup()
+                try {
+                  controller.close()
+                } catch {
+                  return
+                }
               }
             }
 
-            const heartbeat = setInterval(() => {
-              controller.enqueue(encoder.encode('event: ping\ndata: {}\n\n'))
+            heartbeat = setInterval(() => {
+              if (closed) return
+              try {
+                controller.enqueue(encoder.encode('event: ping\ndata: {}\n\n'))
+              } catch {
+                closed = true
+                cleanup()
+                try {
+                  controller.close()
+                } catch {
+                  return
+                }
+              }
             }, 15000)
 
             const key = sessionKey || friendlyId
@@ -79,8 +106,7 @@ export const Route = createFileRoute('/api/stream')({
               () => {
                 if (closed) return
                 closed = true
-                clearInterval(heartbeat)
-                releaseClient?.()
+                cleanup()
                 try {
                   controller.close()
                 } catch {
@@ -93,7 +119,12 @@ export const Route = createFileRoute('/api/stream')({
           cancel() {
             if (closed) return
             closed = true
+            if (heartbeat) {
+              clearInterval(heartbeat)
+              heartbeat = null
+            }
             releaseClient?.()
+            releaseClient = null
           },
         })
 
