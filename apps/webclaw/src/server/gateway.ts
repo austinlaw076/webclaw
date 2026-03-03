@@ -239,8 +239,8 @@ type GatewayClient = {
     params?: unknown,
   ) => Promise<TPayload>
   close: () => void
-  setOnEvent: (handler?: (event: GatewayEventFrame) => void) => void
-  setOnError: (handler?: (error: Error) => void) => void
+  subscribeOnEvent: (handler: (event: GatewayEventFrame) => void) => () => void
+  subscribeOnError: (handler: (error: Error) => void) => () => void
   isClosed: () => boolean
 }
 
@@ -399,8 +399,8 @@ function createGatewayClient(): GatewayClient {
   const ws = new WebSocket(url)
   let closed = false
   let connected = false
-  let onEvent: ((event: GatewayEventFrame) => void) | undefined
-  let onError: ((error: Error) => void) | undefined
+  const onEventHandlers = new Set<(event: GatewayEventFrame) => void>()
+  const onErrorHandlers = new Set<(error: Error) => void>()
   const waiters = new Map<
     string,
     {
@@ -421,7 +421,9 @@ function createGatewayClient(): GatewayClient {
       const data = typeof evt.data === 'string' ? evt.data : ''
       const parsed = JSON.parse(data) as GatewayFrame
       if (parsed.type === 'event') {
-        if (onEvent) onEvent(parsed)
+        for (const handler of onEventHandlers) {
+          handler(parsed)
+        }
         return
       }
       if (parsed.type !== 'res') return
@@ -436,12 +438,11 @@ function createGatewayClient(): GatewayClient {
   }
 
   function handleError(err: Event) {
-    if (onError) {
-      onError(
-        new Error(
-          `Gateway client error: ${String((err as any)?.message ?? err)}`,
-        ),
-      )
+    const error = new Error(
+      `Gateway client error: ${String((err as any)?.message ?? err)}`,
+    )
+    for (const handler of onErrorHandlers) {
+      handler(error)
     }
   }
 
@@ -509,23 +510,31 @@ function createGatewayClient(): GatewayClient {
     ws.removeEventListener('message', handleMessage)
     ws.removeEventListener('error', handleError)
     ws.removeEventListener('close', handleClose)
+    onEventHandlers.clear()
+    onErrorHandlers.clear()
     rejectAll(new Error('Gateway client closed'))
     void wsClose(ws)
   }
 
-  function setOnEvent(handler?: (event: GatewayEventFrame) => void) {
-    onEvent = handler
+  function subscribeOnEvent(handler: (event: GatewayEventFrame) => void) {
+    onEventHandlers.add(handler)
+    return function unsubscribeOnEvent() {
+      onEventHandlers.delete(handler)
+    }
   }
 
-  function setOnError(handler?: (error: Error) => void) {
-    onError = handler
+  function subscribeOnError(handler: (error: Error) => void) {
+    onErrorHandlers.add(handler)
+    return function unsubscribeOnError() {
+      onErrorHandlers.delete(handler)
+    }
   }
 
   function isClosed() {
     return closed
   }
 
-  return { connect, sendReq, close, setOnEvent, setOnError, isClosed }
+  return { connect, sendReq, close, subscribeOnEvent, subscribeOnError, isClosed }
 }
 
 export async function acquireGatewayClient(
@@ -535,27 +544,44 @@ export async function acquireGatewayClient(
     onError?: (error: Error) => void
   },
 ): Promise<GatewayClientHandle> {
+  const onEvent = options?.onEvent
+  const onError = options?.onError
+
   const existing = sharedGatewayClients.get(key)
   if (existing && !existing.client.isClosed()) {
     existing.refs += 1
-    if (options?.onEvent) existing.client.setOnEvent(options.onEvent)
-    if (options?.onError) existing.client.setOnError(options.onError)
+    const unsubscribeOnEvent = onEvent
+      ? existing.client.subscribeOnEvent(onEvent)
+      : null
+    const unsubscribeOnError = onError
+      ? existing.client.subscribeOnError(onError)
+      : null
+    let released = false
     return {
       client: existing.client,
       release: function release() {
+        if (released) return
+        released = true
+        unsubscribeOnEvent?.()
+        unsubscribeOnError?.()
         releaseGatewayClient(key)
       },
     }
   }
 
   const client = createGatewayClient()
-  if (options?.onEvent) client.setOnEvent(options.onEvent)
-  if (options?.onError) client.setOnError(options.onError)
+  const unsubscribeOnEvent = onEvent ? client.subscribeOnEvent(onEvent) : null
+  const unsubscribeOnError = onError ? client.subscribeOnError(onError) : null
   await client.connect()
   sharedGatewayClients.set(key, { key, refs: 1, client })
+  let released = false
   return {
     client,
     release: function release() {
+      if (released) return
+      released = true
+      unsubscribeOnEvent?.()
+      unsubscribeOnError?.()
       releaseGatewayClient(key)
     },
   }
