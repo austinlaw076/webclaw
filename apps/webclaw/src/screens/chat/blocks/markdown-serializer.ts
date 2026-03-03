@@ -56,9 +56,18 @@ function serializeCallout(variant: CalloutVariant, markdown: string): string {
 }
 
 function serializeCode(language: string, code: string): string {
+  const fence = pickCodeFence(code)
   const normalizedLanguage = language.trim()
   const normalizedCode = code.replace(/\s+$/, '')
-  return `\`\`\`${normalizedLanguage}\n${normalizedCode}\n\`\`\``.trim()
+  return `${fence}${normalizedLanguage}\n${normalizedCode}\n${fence}`.trim()
+}
+
+function pickCodeFence(code: string): string {
+  const fenceRuns = code.match(/`+/g) ?? []
+  const longestRun = fenceRuns.reduce(function pickLongest(current, run) {
+    return Math.max(current, run.length)
+  }, 0)
+  return '`'.repeat(Math.max(3, longestRun + 1))
 }
 
 export function serializeBlockToMarkdown(block: BlockDocBlock): string {

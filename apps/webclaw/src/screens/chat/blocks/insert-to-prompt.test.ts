@@ -43,4 +43,10 @@ describe('appendInsertionToPrompt', function () {
     expect(appendInsertionToPrompt('', 'World')).toBe('World')
     expect(appendInsertionToPrompt('Hello', '')).toBe('Hello')
   })
+
+  it('preserves leading whitespace in insertion content', function () {
+    expect(appendInsertionToPrompt('Hello', '  - nested item')).toBe(
+      'Hello\n\n  - nested item',
+    )
+  })
 })

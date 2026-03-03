@@ -33,9 +33,9 @@ export function appendInsertionToPrompt(
   insertion: string,
 ): string {
   const normalizedPrompt = currentPrompt.trimEnd()
-  const normalizedInsertion = insertion.trim()
+  const normalizedInsertion = insertion.trimEnd()
 
-  if (!normalizedInsertion) return normalizedPrompt
+  if (normalizedInsertion.trim().length === 0) return normalizedPrompt
   if (!normalizedPrompt) return normalizedInsertion
 
   return `${normalizedPrompt}\n\n${normalizedInsertion}`

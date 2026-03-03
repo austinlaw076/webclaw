@@ -81,6 +81,23 @@ describe('serializeBlockToMarkdown', function () {
 
     expect(serializeBlockToMarkdown(block)).toBe('```ts\nconst a = 1\n```')
   })
+
+  it('uses a longer fence when code contains triple backticks', function () {
+    const block: BlockDocBlock = {
+      id: 'b6',
+      type: 'code',
+      data: {
+        language: 'md',
+        code: 'before\n```json\n{"a":1}\n```\nafter',
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    }
+
+    expect(serializeBlockToMarkdown(block)).toBe(
+      '````md\nbefore\n```json\n{"a":1}\n```\nafter\n````',
+    )
+  })
 })
 
 describe('serializeBlocksToMarkdown', function () {
