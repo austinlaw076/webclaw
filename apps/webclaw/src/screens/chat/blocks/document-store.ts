@@ -12,6 +12,7 @@ type BlockDocumentsStore = BlockDocumentsState & {
   upsertBlock: (sessionKey: string, block: BlockDocBlock) => void
   removeBlock: (sessionKey: string, blockId: string) => void
   reorderBlocks: (sessionKey: string, sourceIndex: number, targetIndex: number) => void
+  migrateDocSessionKey: (fromSessionKey: string, toSessionKey: string) => void
   clearDoc: (sessionKey: string) => void
 }
 
@@ -153,6 +154,60 @@ export function clearDoc(
   }
 }
 
+function mergeDocBlocks(
+  targetBlocks: Array<BlockDocBlock>,
+  sourceBlocks: Array<BlockDocBlock>,
+): Array<BlockDocBlock> {
+  const merged = [...targetBlocks]
+  for (const sourceBlock of sourceBlocks) {
+    const existingIndex = merged.findIndex((block) => block.id === sourceBlock.id)
+    if (existingIndex < 0) {
+      merged.push(sourceBlock)
+      continue
+    }
+
+    const existing = merged[existingIndex]
+    if (sourceBlock.updatedAt >= existing.updatedAt) {
+      merged[existingIndex] = sourceBlock
+    }
+  }
+
+  return merged
+}
+
+export function migrateDocSessionKey(
+  state: BlockDocumentsState,
+  fromSessionKey: string,
+  toSessionKey: string,
+): BlockDocumentsState {
+  const fromKey = normalizeSessionKey(fromSessionKey)
+  const toKey = normalizeSessionKey(toSessionKey)
+  if (fromKey === toKey) return state
+
+  const sourceDoc = state.docsBySession[fromKey]
+  if (!sourceDoc) return state
+
+  const targetDoc = state.docsBySession[toKey]
+  const nextTargetDoc: BlockDocument = targetDoc
+    ? {
+        ...targetDoc,
+        sessionKey: toKey,
+        blocks: mergeDocBlocks(targetDoc.blocks, sourceDoc.blocks),
+        updatedAt: Math.max(targetDoc.updatedAt, sourceDoc.updatedAt),
+      }
+    : {
+        ...sourceDoc,
+        sessionKey: toKey,
+      }
+
+  const nextDocsBySession = { ...state.docsBySession, [toKey]: nextTargetDoc }
+  delete nextDocsBySession[fromKey]
+
+  return {
+    docsBySession: nextDocsBySession,
+  }
+}
+
 function createMemoryStorage(): StateStorage {
   const memory = new Map<string, string>()
   return {
@@ -202,6 +257,12 @@ export const useBlockDocumentsStore = create<BlockDocumentsStore>()(
       },
       reorderBlocks: function reorderBlocksAction(sessionKey, sourceIndex, targetIndex) {
         set((state) => reorderBlocks(state, sessionKey, sourceIndex, targetIndex))
+      },
+      migrateDocSessionKey: function migrateDocSessionKeyAction(
+        fromSessionKey,
+        toSessionKey,
+      ) {
+        set((state) => migrateDocSessionKey(state, fromSessionKey, toSessionKey))
       },
       clearDoc: function clearDocAction(sessionKey) {
         set((state) => clearDoc(state, sessionKey))

@@ -43,6 +43,11 @@ import { useChatGenerationGuard } from './hooks/use-chat-generation-guard'
 import { shouldRedirectToConnect } from './hooks/use-chat-error-state'
 import { useChatRedirect } from './hooks/use-chat-redirect'
 import { useBlockDocumentsStore } from './blocks/document-store'
+import {
+  createNewChatDraftSessionKey,
+  resolveBlockPersistenceSessionKey,
+  resolveSafeBlockMigrations,
+} from './blocks/session-key-migration'
 import type { AttachmentFile } from '@/components/attachment-button'
 import type {
   ChatComposerHelpers,
@@ -85,6 +90,11 @@ export function ChatScreen({
   const pendingRunIdsRef = useRef(new Set<string>())
   const pendingRunTimersRef = useRef(new Map<string, number>())
   const composerPromptBridgeRef = useRef<ChatComposerPromptBridge | null>(null)
+  const previousIsNewChatRef = useRef(isNewChat)
+  const previousBlockSessionKeyRef = useRef<string | null>(null)
+  const [newChatDraftSessionKey, setNewChatDraftSessionKey] = useState(
+    () => createNewChatDraftSessionKey(),
+  )
   const { isMobile } = useChatMobile(queryClient)
   const {
     sessionsQuery,
@@ -155,10 +165,25 @@ export function ChatScreen({
   }, [navigate])
   const stableContentStyle = useMemo<React.CSSProperties>(() => ({}), [])
   const getOrCreateBlockDoc = useBlockDocumentsStore((state) => state.getOrCreateDoc)
+  const clearBlockDoc = useBlockDocumentsStore((state) => state.clearDoc)
+  const migrateBlockDocSessionKey = useBlockDocumentsStore(
+    (state) => state.migrateDocSessionKey,
+  )
   const blockSessionKey = useMemo(() => {
-    if (isNewChat) return 'new'
-    return resolvedSessionKey || activeSessionKey || activeFriendlyId
-  }, [activeFriendlyId, activeSessionKey, isNewChat, resolvedSessionKey])
+    return resolveBlockPersistenceSessionKey({
+      isNewChat,
+      draftSessionKey: newChatDraftSessionKey,
+      forcedSessionKey,
+      resolvedSessionKey,
+      activeSessionKey,
+    })
+  }, [
+    activeSessionKey,
+    forcedSessionKey,
+    isNewChat,
+    newChatDraftSessionKey,
+    resolvedSessionKey,
+  ])
   const missingSessionError =
     isSessionNotFound(historyError ?? '') ||
     isSessionNotFound(sessionsError ?? '')
@@ -235,9 +260,45 @@ export function ChatScreen({
   }, [finishAllRuns])
 
   useEffect(() => {
+    if (isNewChat && !previousIsNewChatRef.current) {
+      setNewChatDraftSessionKey(createNewChatDraftSessionKey())
+    }
+    previousIsNewChatRef.current = isNewChat
+  }, [isNewChat])
+
+  useEffect(() => {
+    if (!isNewChat || !blockSessionKey) return
+    const draftKey = blockSessionKey
+    getOrCreateBlockDoc(draftKey)
+    return () => {
+      clearBlockDoc(draftKey)
+    }
+  }, [blockSessionKey, clearBlockDoc, getOrCreateBlockDoc, isNewChat])
+
+  useEffect(() => {
     if (!blockSessionKey) return
-    getOrCreateBlockDoc(blockSessionKey)
-  }, [blockSessionKey, getOrCreateBlockDoc])
+    if (!isNewChat) {
+      getOrCreateBlockDoc(blockSessionKey)
+    }
+
+    const migrations = resolveSafeBlockMigrations({
+      isNewChat,
+      previousBlockSessionKey: previousBlockSessionKeyRef.current,
+      persistenceSessionKey: blockSessionKey,
+      activeFriendlyId,
+    })
+    for (const migration of migrations) {
+      migrateBlockDocSessionKey(migration.fromSessionKey, migration.toSessionKey)
+    }
+
+    previousBlockSessionKeyRef.current = blockSessionKey
+  }, [
+    activeFriendlyId,
+    blockSessionKey,
+    getOrCreateBlockDoc,
+    isNewChat,
+    migrateBlockDocSessionKey,
+  ])
 
   function sendMessage(
     sessionKey: string,
@@ -369,6 +430,7 @@ export function ChatScreen({
       helpers.reset()
 
       if (isNewChat) {
+        const draftBlockSessionKey = blockSessionKey
         const { clientId, optimisticId, optimisticMessage } =
           createOptimisticMessage(body, attachments)
         appendHistoryMessage(queryClient, 'new', 'new', optimisticMessage)
@@ -379,6 +441,9 @@ export function ChatScreen({
 
         createSessionForMessage()
           .then(({ sessionKey, friendlyId }) => {
+            if (draftBlockSessionKey) {
+              migrateBlockDocSessionKey(draftBlockSessionKey, sessionKey)
+            }
             setRecentSession(friendlyId)
             stashPendingSend({
               sessionKey,
@@ -424,9 +489,11 @@ export function ChatScreen({
     [
       activeFriendlyId,
       activeSessionKey,
+      blockSessionKey,
       createSessionForMessage,
       forcedSessionKey,
       isNewChat,
+      migrateBlockDocSessionKey,
       navigate,
       onSessionResolved,
       queryClient,
@@ -591,6 +658,7 @@ export function ChatScreen({
   const writePrompt = function writePrompt(nextPrompt: string) {
     composerPromptBridgeRef.current?.setValue(nextPrompt)
   }
+  const showFormWorkbench = isNewChat || Boolean(blockSessionKey)
 
   return (
     <div className="h-screen bg-surface text-primary-900">
@@ -643,11 +711,13 @@ export function ChatScreen({
                 headerHeight={headerHeight}
                 contentStyle={stableContentStyle}
               />
-              <ChatFormWorkbench
-                sessionKey={blockSessionKey}
-                readPrompt={readPrompt}
-                writePrompt={writePrompt}
-              />
+              {showFormWorkbench ? (
+                <ChatFormWorkbench
+                  sessionKey={blockSessionKey}
+                  readPrompt={readPrompt}
+                  writePrompt={writePrompt}
+                />
+              ) : null}
               <ChatComposer
                 onSubmit={send}
                 isLoading={sending}
