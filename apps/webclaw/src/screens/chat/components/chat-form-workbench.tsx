@@ -12,7 +12,7 @@ import {
   buildPromptInsertionFromBlocks,
 } from '../blocks/insert-to-prompt'
 import { useBlockDocumentsStore } from '../blocks/document-store'
-import type { FormField, FormFieldValue } from '../blocks/types'
+import type { FormBlock, FormField, FormFieldValue } from '../blocks/types'
 import type { ChatComposerPromptBridge } from './chat-composer'
 import { Button } from '@/components/ui/button'
 
@@ -27,18 +27,16 @@ function copyToClipboard(value: string) {
   void navigator.clipboard.writeText(value).catch(() => {})
 }
 
+type FormBlockUpdater = (form: FormBlock) => FormBlock
+
 function persistFormWithUpdater(
   sessionKey: string,
-  updater: ReturnType<typeof createFormUpdater>,
+  updater: FormBlockUpdater,
 ) {
   const store = useBlockDocumentsStore.getState()
   const latestDoc = store.getOrCreateDoc(sessionKey)
   const latestForm = resolveFormBlock(latestDoc.blocks)
   store.upsertBlock(sessionKey, updater(latestForm))
-}
-
-function createFormUpdater<T>(fn: T): T {
-  return fn
 }
 
 export function ChatFormWorkbench({
