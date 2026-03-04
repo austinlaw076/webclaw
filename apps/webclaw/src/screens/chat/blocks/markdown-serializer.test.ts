@@ -98,6 +98,24 @@ describe('serializeBlockToMarkdown', function () {
       '````md\nbefore\n```json\n{"a":1}\n```\nafter\n````',
     )
   })
+
+  it('serializes form block to key value markdown lines', function () {
+    const block: BlockDocBlock = {
+      id: 'b7',
+      type: 'form',
+      data: {
+        schema: [
+          { id: 'name', label: 'Name', type: 'text' },
+          { id: 'approved', label: 'Approved', type: 'checkbox' },
+        ],
+        values: { name: 'Alice', approved: true },
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    }
+
+    expect(serializeBlockToMarkdown(block)).toBe('Name: Alice\nApproved: true')
+  })
 })
 
 describe('serializeBlocksToMarkdown', function () {

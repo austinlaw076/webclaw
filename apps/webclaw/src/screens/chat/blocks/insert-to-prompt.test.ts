@@ -49,4 +49,23 @@ describe('appendInsertionToPrompt', function () {
       'Hello\n\n  - nested item',
     )
   })
+
+  it('supports form block insertion updater behavior', function () {
+    const insertion = buildPromptInsertionFromBlocks([
+      {
+        id: 'form-1',
+        type: 'form',
+        data: {
+          schema: [{ id: 'name', label: 'Name', type: 'text' }],
+          values: { name: 'Alice' },
+        },
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ])
+
+    expect(appendInsertionToPrompt('Prompt', insertion)).toBe(
+      'Prompt\n\nName: Alice',
+    )
+  })
 })

@@ -1,3 +1,4 @@
+import { buildFormMarkdownExport } from './form-actions'
 import type {
   BlockDocBlock,
   CalloutVariant,
@@ -82,6 +83,8 @@ export function serializeBlockToMarkdown(block: BlockDocBlock): string {
       return serializeCallout(block.data.variant, block.data.markdown)
     case 'code':
       return serializeCode(block.data.language, block.data.code)
+    case 'form':
+      return buildFormMarkdownExport(block.data)
   }
 }
 

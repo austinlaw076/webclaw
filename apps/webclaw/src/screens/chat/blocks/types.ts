@@ -1,4 +1,10 @@
-export type BlockType = 'richtext' | 'table' | 'todo' | 'callout' | 'code'
+export type BlockType =
+  | 'richtext'
+  | 'table'
+  | 'todo'
+  | 'callout'
+  | 'code'
+  | 'form'
 
 export type RichtextBlockData = {
   markdown: string
@@ -29,6 +35,36 @@ export type CalloutBlockData = {
 export type CodeBlockData = {
   language: string
   code: string
+}
+
+export type FormFieldType = 'text' | 'textarea' | 'select' | 'checkbox' | 'date'
+
+type FormFieldBase = {
+  id: string
+  label: string
+  type: FormFieldType
+}
+
+export type FormTextField = FormFieldBase & {
+  type: 'text' | 'textarea' | 'date'
+}
+
+export type FormSelectField = FormFieldBase & {
+  type: 'select'
+  options: Array<string>
+}
+
+export type FormCheckboxField = FormFieldBase & {
+  type: 'checkbox'
+}
+
+export type FormField = FormTextField | FormSelectField | FormCheckboxField
+
+export type FormFieldValue = string | boolean
+
+export type FormBlockData = {
+  schema: Array<FormField>
+  values: Record<string, FormFieldValue>
 }
 
 type BlockDocBase = {
@@ -62,12 +98,18 @@ export type CodeBlock = BlockDocBase & {
   data: CodeBlockData
 }
 
+export type FormBlock = BlockDocBase & {
+  type: 'form'
+  data: FormBlockData
+}
+
 export type BlockDocBlock =
   | RichtextBlock
   | TableBlock
   | TodoBlock
   | CalloutBlock
   | CodeBlock
+  | FormBlock
 
 export type BlockDocument = {
   sessionKey: string

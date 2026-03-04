@@ -23,6 +23,7 @@ import { ChatSidebar } from './components/chat-sidebar'
 import { ChatHeader } from './components/chat-header'
 import { ChatMessageList } from './components/chat-message-list'
 import { ChatComposer } from './components/chat-composer'
+import { ChatFormWorkbench } from './components/chat-form-workbench'
 import { GatewayStatusMessage } from './components/gateway-status-message'
 import {
   hasPendingGeneration,
@@ -41,8 +42,12 @@ import { useChatPendingSend } from './hooks/use-chat-pending-send'
 import { useChatGenerationGuard } from './hooks/use-chat-generation-guard'
 import { shouldRedirectToConnect } from './hooks/use-chat-error-state'
 import { useChatRedirect } from './hooks/use-chat-redirect'
+import { useBlockDocumentsStore } from './blocks/document-store'
 import type { AttachmentFile } from '@/components/attachment-button'
-import type { ChatComposerHelpers } from './components/chat-composer'
+import type {
+  ChatComposerHelpers,
+  ChatComposerPromptBridge,
+} from './components/chat-composer'
 import { useExport } from '@/hooks/use-export'
 import { useChatSettings } from '@/hooks/use-chat-settings'
 import { cn, randomUUID } from '@/lib/utils'
@@ -79,6 +84,7 @@ export function ChatScreen({
   const { settings } = useChatSettings()
   const pendingRunIdsRef = useRef(new Set<string>())
   const pendingRunTimersRef = useRef(new Map<string, number>())
+  const composerPromptBridgeRef = useRef<ChatComposerPromptBridge | null>(null)
   const { isMobile } = useChatMobile(queryClient)
   const {
     sessionsQuery,
@@ -148,6 +154,11 @@ export function ChatScreen({
     navigate({ to: '/new', replace: true })
   }, [navigate])
   const stableContentStyle = useMemo<React.CSSProperties>(() => ({}), [])
+  const getOrCreateBlockDoc = useBlockDocumentsStore((state) => state.getOrCreateDoc)
+  const blockSessionKey = useMemo(() => {
+    if (isNewChat) return 'new'
+    return resolvedSessionKey || activeSessionKey || activeFriendlyId
+  }, [activeFriendlyId, activeSessionKey, isNewChat, resolvedSessionKey])
   const missingSessionError =
     isSessionNotFound(historyError ?? '') ||
     isSessionNotFound(sessionsError ?? '')
@@ -222,6 +233,11 @@ export function ChatScreen({
       finishAllRuns()
     }
   }, [finishAllRuns])
+
+  useEffect(() => {
+    if (!blockSessionKey) return
+    getOrCreateBlockDoc(blockSessionKey)
+  }, [blockSessionKey, getOrCreateBlockDoc])
 
   function sendMessage(
     sessionKey: string,
@@ -562,6 +578,20 @@ export function ChatScreen({
     return <Navigate to="/connect" replace />
   }
 
+  const handleComposerBridge = function handleComposerBridge(
+    bridge: ChatComposerPromptBridge,
+  ) {
+    composerPromptBridgeRef.current = bridge
+  }
+
+  const readPrompt = function readPrompt() {
+    return composerPromptBridgeRef.current?.getValue() ?? ''
+  }
+
+  const writePrompt = function writePrompt(nextPrompt: string) {
+    composerPromptBridgeRef.current?.setValue(nextPrompt)
+  }
+
   return (
     <div className="h-screen bg-surface text-primary-900">
       <div
@@ -613,11 +643,17 @@ export function ChatScreen({
                 headerHeight={headerHeight}
                 contentStyle={stableContentStyle}
               />
+              <ChatFormWorkbench
+                sessionKey={blockSessionKey}
+                readPrompt={readPrompt}
+                writePrompt={writePrompt}
+              />
               <ChatComposer
                 onSubmit={send}
                 isLoading={sending}
                 disabled={sending}
                 wrapperRef={composerRef}
+                onPromptBridge={handleComposerBridge}
               />
             </>
           )}
