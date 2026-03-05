@@ -29,10 +29,7 @@ function copyToClipboard(value: string) {
 
 type FormBlockUpdater = (form: FormBlock) => FormBlock
 
-function persistFormWithUpdater(
-  sessionKey: string,
-  updater: FormBlockUpdater,
-) {
+function persistFormWithUpdater(sessionKey: string, updater: FormBlockUpdater) {
   const store = useBlockDocumentsStore.getState()
   const latestDoc = store.getOrCreateDoc(sessionKey)
   const latestForm = resolveFormBlock(latestDoc.blocks)
@@ -60,7 +57,9 @@ export function ChatFormWorkbench({
 
   const handleValueChange = useCallback(
     (fieldId: string, value: FormFieldValue) => {
-      persistFormWithUpdater(sessionKey, (form) => withFormValue(form, fieldId, value))
+      persistFormWithUpdater(sessionKey, (form) =>
+        withFormValue(form, fieldId, value),
+      )
     },
     [sessionKey],
   )
@@ -70,19 +69,25 @@ export function ChatFormWorkbench({
   }, [sessionKey])
 
   const handleCopyJson = useCallback(() => {
-    const latestDoc = useBlockDocumentsStore.getState().getOrCreateDoc(sessionKey)
+    const latestDoc = useBlockDocumentsStore
+      .getState()
+      .getOrCreateDoc(sessionKey)
     const latestForm = resolveFormBlock(latestDoc.blocks)
     copyToClipboard(buildFormJsonExport(latestForm.data))
   }, [sessionKey])
 
   const handleCopyMarkdown = useCallback(() => {
-    const latestDoc = useBlockDocumentsStore.getState().getOrCreateDoc(sessionKey)
+    const latestDoc = useBlockDocumentsStore
+      .getState()
+      .getOrCreateDoc(sessionKey)
     const latestForm = resolveFormBlock(latestDoc.blocks)
     copyToClipboard(buildFormMarkdownExport(latestForm.data))
   }, [sessionKey])
 
   const handleInsertToPrompt = useCallback(() => {
-    const latestDoc = useBlockDocumentsStore.getState().getOrCreateDoc(sessionKey)
+    const latestDoc = useBlockDocumentsStore
+      .getState()
+      .getOrCreateDoc(sessionKey)
     const latestForm = resolveFormBlock(latestDoc.blocks)
     const insertion = buildPromptInsertionFromBlocks([latestForm])
     const nextPrompt = appendInsertionToPrompt(readPrompt(), insertion)
@@ -93,11 +98,23 @@ export function ChatFormWorkbench({
     <section className="mx-auto w-full max-w-full px-5 sm:max-w-[768px] sm:min-w-[400px] pb-2">
       <div className="rounded-xl border bg-card/80 px-3 py-3 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Form Block</span>
-          <Button type="button" size="sm" variant="outline" onClick={handleReset}>
+          <span className="text-xs font-medium text-muted-foreground">
+            Form Block
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleReset}
+          >
             Reset
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={handleCopyJson}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleCopyJson}
+          >
             Copy JSON
           </Button>
           <Button
@@ -143,7 +160,9 @@ function FormFieldControl({ field, value, onChange }: FormFieldControlProps) {
   if (field.type === 'textarea') {
     return (
       <label className="block space-y-1">
-        <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          {field.label}
+        </span>
         <textarea
           value={typeof value === 'string' ? value : ''}
           onChange={(event) => onChange(event.currentTarget.value)}
@@ -156,7 +175,9 @@ function FormFieldControl({ field, value, onChange }: FormFieldControlProps) {
   if (field.type === 'select') {
     return (
       <label className="block space-y-1">
-        <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          {field.label}
+        </span>
         <select
           value={typeof value === 'string' ? value : ''}
           onChange={(event) => onChange(event.currentTarget.value)}
@@ -189,7 +210,9 @@ function FormFieldControl({ field, value, onChange }: FormFieldControlProps) {
 
   return (
     <label className="block space-y-1">
-      <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+      <span className="text-xs font-medium text-muted-foreground">
+        {field.label}
+      </span>
       <input
         type={field.type === 'date' ? 'date' : 'text'}
         value={typeof value === 'string' ? value : ''}

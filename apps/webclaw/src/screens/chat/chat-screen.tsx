@@ -92,8 +92,8 @@ export function ChatScreen({
   const composerPromptBridgeRef = useRef<ChatComposerPromptBridge | null>(null)
   const previousIsNewChatRef = useRef(isNewChat)
   const previousBlockSessionKeyRef = useRef<string | null>(null)
-  const [newChatDraftSessionKey, setNewChatDraftSessionKey] = useState(
-    () => createNewChatDraftSessionKey(),
+  const [newChatDraftSessionKey, setNewChatDraftSessionKey] = useState(() =>
+    createNewChatDraftSessionKey(),
   )
   const { isMobile } = useChatMobile(queryClient)
   const {
@@ -164,7 +164,9 @@ export function ChatScreen({
     navigate({ to: '/new', replace: true })
   }, [navigate])
   const stableContentStyle = useMemo<React.CSSProperties>(() => ({}), [])
-  const getOrCreateBlockDoc = useBlockDocumentsStore((state) => state.getOrCreateDoc)
+  const getOrCreateBlockDoc = useBlockDocumentsStore(
+    (state) => state.getOrCreateDoc,
+  )
   const clearBlockDoc = useBlockDocumentsStore((state) => state.clearDoc)
   const migrateBlockDocSessionKey = useBlockDocumentsStore(
     (state) => state.migrateDocSessionKey,
@@ -194,7 +196,8 @@ export function ChatScreen({
     !isRecentSession(activeFriendlyId) &&
     sessionsQuery.isSuccess &&
     !sessions.some((session) => session.friendlyId === activeFriendlyId) &&
-    (missingSessionError || (!historyQuery.isFetching && !historyQuery.isSuccess))
+    (missingSessionError ||
+      (!historyQuery.isFetching && !historyQuery.isSuccess))
 
   const refreshHistory = useCallback(() => {
     void historyQuery.refetch()
@@ -288,7 +291,10 @@ export function ChatScreen({
       activeFriendlyId,
     })
     for (const migration of migrations) {
-      migrateBlockDocSessionKey(migration.fromSessionKey, migration.toSessionKey)
+      migrateBlockDocSessionKey(
+        migration.fromSessionKey,
+        migration.toSessionKey,
+      )
     }
 
     previousBlockSessionKeyRef.current = blockSessionKey

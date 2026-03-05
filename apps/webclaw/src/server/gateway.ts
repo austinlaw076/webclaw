@@ -118,7 +118,9 @@ function loadOrCreateDeviceIdentity(): DeviceIdentity {
 
   if (existsSync(DEVICE_KEYS_PATH)) {
     try {
-      const stored = JSON.parse(readFileSync(DEVICE_KEYS_PATH, 'utf8')) as unknown
+      const stored = JSON.parse(
+        readFileSync(DEVICE_KEYS_PATH, 'utf8'),
+      ) as unknown
       if (isStoredDeviceKeys(stored)) {
         keyPair = importStoredKeyPair(stored)
       }
@@ -341,7 +343,10 @@ async function buildConnectParams(
  * The gateway sends this immediately after WS open, before any connect request.
  * Returns the nonce string.
  */
-function waitForConnectChallenge(ws: WebSocket, timeoutMs = 5000): Promise<string> {
+function waitForConnectChallenge(
+  ws: WebSocket,
+  timeoutMs = 5000,
+): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => {
       ws.removeEventListener('message', handler)
@@ -352,8 +357,13 @@ function waitForConnectChallenge(ws: WebSocket, timeoutMs = 5000): Promise<strin
       try {
         const data = typeof evt.data === 'string' ? evt.data : ''
         const parsed = JSON.parse(data) as GatewayFrame
-        if (parsed.type === 'event' && (parsed as any).event === 'connect.challenge') {
-          const payload = (parsed as any).payload as { nonce?: string } | undefined
+        if (
+          parsed.type === 'event' &&
+          (parsed as any).event === 'connect.challenge'
+        ) {
+          const payload = (parsed as any).payload as
+            | { nonce?: string }
+            | undefined
           const nonce = payload?.nonce
           if (typeof nonce === 'string' && nonce.trim()) {
             clearTimeout(timer)
@@ -376,7 +386,9 @@ async function connectGateway(ws: WebSocket): Promise<void> {
 
   // Wait for the connect.challenge event containing the nonce
   const nonce = await waitForConnectChallenge(ws)
-  console.log(`[gateway-ws] Received connect challenge nonce: ${nonce.slice(0, 8)}...`)
+  console.log(
+    `[gateway-ws] Received connect challenge nonce: ${nonce.slice(0, 8)}...`,
+  )
 
   // Send connect with the nonce
   const connectId = randomUUID()
@@ -466,7 +478,9 @@ function createGatewayClient(): GatewayClient {
 
     // Wait for the connect.challenge event containing the nonce
     const nonce = await waitForConnectChallenge(ws)
-    console.log(`[gateway-ws] Received connect challenge nonce: ${nonce.slice(0, 8)}...`)
+    console.log(
+      `[gateway-ws] Received connect challenge nonce: ${nonce.slice(0, 8)}...`,
+    )
 
     // Send connect with the nonce
     const connectId = randomUUID()

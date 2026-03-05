@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { serializeBlockToMarkdown, serializeBlocksToMarkdown } from './markdown-serializer'
+import {
+  serializeBlockToMarkdown,
+  serializeBlocksToMarkdown,
+} from './markdown-serializer'
 import type { BlockDocBlock } from './types'
 
 describe('serializeBlockToMarkdown', function () {
@@ -64,7 +67,9 @@ describe('serializeBlockToMarkdown', function () {
       updatedAt: 1,
     }
 
-    expect(serializeBlockToMarkdown(block)).toBe('> [!WARNING]\n> Watch this\n> Now')
+    expect(serializeBlockToMarkdown(block)).toBe(
+      '> [!WARNING]\n> Watch this\n> Now',
+    )
   })
 
   it('serializes code block to fenced code', function () {

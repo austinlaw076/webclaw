@@ -11,7 +11,11 @@ type BlockDocumentsStore = BlockDocumentsState & {
   getOrCreateDoc: (sessionKey: string) => BlockDocument
   upsertBlock: (sessionKey: string, block: BlockDocBlock) => void
   removeBlock: (sessionKey: string, blockId: string) => void
-  reorderBlocks: (sessionKey: string, sourceIndex: number, targetIndex: number) => void
+  reorderBlocks: (
+    sessionKey: string,
+    sourceIndex: number,
+    targetIndex: number,
+  ) => void
   migrateDocSessionKey: (fromSessionKey: string, toSessionKey: string) => void
   clearDoc: (sessionKey: string) => void
 }
@@ -57,7 +61,9 @@ export function upsertBlock(
 ): BlockDocumentsState {
   const key = normalizeSessionKey(sessionKey)
   const previousDoc = state.docsBySession[key] ?? createEmptyDoc(key)
-  const existingIndex = previousDoc.blocks.findIndex((item) => item.id === block.id)
+  const existingIndex = previousDoc.blocks.findIndex(
+    (item) => item.id === block.id,
+  )
 
   const nextBlocks = [...previousDoc.blocks]
   if (existingIndex >= 0) {
@@ -160,7 +166,9 @@ function mergeDocBlocks(
 ): Array<BlockDocBlock> {
   const merged = [...targetBlocks]
   for (const sourceBlock of sourceBlocks) {
-    const existingIndex = merged.findIndex((block) => block.id === sourceBlock.id)
+    const existingIndex = merged.findIndex(
+      (block) => block.id === sourceBlock.id,
+    )
     if (existingIndex < 0) {
       merged.push(sourceBlock)
       continue
@@ -255,14 +263,22 @@ export const useBlockDocumentsStore = create<BlockDocumentsStore>()(
       removeBlock: function removeBlockAction(sessionKey, blockId) {
         set((state) => removeBlock(state, sessionKey, blockId))
       },
-      reorderBlocks: function reorderBlocksAction(sessionKey, sourceIndex, targetIndex) {
-        set((state) => reorderBlocks(state, sessionKey, sourceIndex, targetIndex))
+      reorderBlocks: function reorderBlocksAction(
+        sessionKey,
+        sourceIndex,
+        targetIndex,
+      ) {
+        set((state) =>
+          reorderBlocks(state, sessionKey, sourceIndex, targetIndex),
+        )
       },
       migrateDocSessionKey: function migrateDocSessionKeyAction(
         fromSessionKey,
         toSessionKey,
       ) {
-        set((state) => migrateDocSessionKey(state, fromSessionKey, toSessionKey))
+        set((state) =>
+          migrateDocSessionKey(state, fromSessionKey, toSessionKey),
+        )
       },
       clearDoc: function clearDocAction(sessionKey) {
         set((state) => clearDoc(state, sessionKey))

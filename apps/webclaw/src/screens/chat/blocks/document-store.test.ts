@@ -53,10 +53,16 @@ describe('block document reducers', function () {
     state = upsertBlock(state, 's', makeRichtextBlock('c', 'C'))
 
     state = removeBlock(state, 's', 'b')
-    expect(state.docsBySession.s?.blocks.map((block) => block.id)).toEqual(['a', 'c'])
+    expect(state.docsBySession.s?.blocks.map((block) => block.id)).toEqual([
+      'a',
+      'c',
+    ])
 
     state = reorderBlocks(state, 's', 1, 0)
-    expect(state.docsBySession.s?.blocks.map((block) => block.id)).toEqual(['c', 'a'])
+    expect(state.docsBySession.s?.blocks.map((block) => block.id)).toEqual([
+      'c',
+      'a',
+    ])
   })
 
   it('clears the whole document for one session', function () {
@@ -75,9 +81,9 @@ describe('block document reducers', function () {
     state = migrateDocSessionKey(state, 'draft-key', 'session-key')
 
     expect(state.docsBySession['draft-key']).toBeUndefined()
-    expect(state.docsBySession['session-key']?.blocks.map((block) => block.id)).toEqual([
-      'a',
-    ])
+    expect(
+      state.docsBySession['session-key']?.blocks.map((block) => block.id),
+    ).toEqual(['a'])
   })
 
   it('merges blocks during migration and keeps newer content', function () {
@@ -90,16 +96,23 @@ describe('block document reducers', function () {
       ...makeRichtextBlock('shared', 'new'),
       updatedAt: 200,
     })
-    state = upsertBlock(state, 'from-key', makeRichtextBlock('source-only', 'S'))
+    state = upsertBlock(
+      state,
+      'from-key',
+      makeRichtextBlock('source-only', 'S'),
+    )
 
     state = migrateDocSessionKey(state, 'from-key', 'to-key')
 
     expect(
-      state.docsBySession['to-key']?.blocks.find((block) => block.id === 'shared')?.data,
+      state.docsBySession['to-key']?.blocks.find(
+        (block) => block.id === 'shared',
+      )?.data,
     ).toEqual({ markdown: 'new' })
     expect(
-      state.docsBySession['to-key']?.blocks.find((block) => block.id === 'source-only')
-        ?.data,
+      state.docsBySession['to-key']?.blocks.find(
+        (block) => block.id === 'source-only',
+      )?.data,
     ).toEqual({ markdown: 'S' })
   })
 })

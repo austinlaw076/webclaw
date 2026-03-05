@@ -38,7 +38,11 @@ export function resolveBlockPersistenceSessionKey({
 }: ResolvePersistenceSessionKeyInput): string {
   if (isNewChat) return normalizeSessionKey(draftSessionKey)
 
-  const canonicalCandidates = [forcedSessionKey, resolvedSessionKey, activeSessionKey]
+  const canonicalCandidates = [
+    forcedSessionKey,
+    resolvedSessionKey,
+    activeSessionKey,
+  ]
   for (const candidate of canonicalCandidates) {
     const normalized = normalizeSessionKey(candidate)
     if (normalized.length > 0) {
@@ -54,7 +58,10 @@ export function resolveSafeBlockMigrations({
   previousBlockSessionKey,
   persistenceSessionKey,
   activeFriendlyId,
-}: SafeMigrationInput): Array<{ fromSessionKey: string; toSessionKey: string }> {
+}: SafeMigrationInput): Array<{
+  fromSessionKey: string
+  toSessionKey: string
+}> {
   if (isNewChat) return []
 
   const toSessionKey = normalizeSessionKey(persistenceSessionKey)
@@ -73,7 +80,10 @@ export function resolveSafeBlockMigrations({
     migrations.push({ fromSessionKey, toSessionKey })
   }
 
-  if (previousBlockSessionKey && previousBlockSessionKey.startsWith(NEW_CHAT_DRAFT_KEY_PREFIX)) {
+  if (
+    previousBlockSessionKey &&
+    previousBlockSessionKey.startsWith(NEW_CHAT_DRAFT_KEY_PREFIX)
+  ) {
     addMigration(previousBlockSessionKey)
   }
 

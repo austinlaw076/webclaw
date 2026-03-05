@@ -27,9 +27,7 @@ export function useExport({
         currentSessionKey || currentFriendlyId,
       )
       const cached = queryClient.getQueryData<HistoryResponse>(historyKey)
-      const messages = Array.isArray(cached?.messages)
-        ? cached.messages
-        : []
+      const messages = Array.isArray(cached?.messages) ? cached.messages : []
 
       if (messages.length === 0) return
 

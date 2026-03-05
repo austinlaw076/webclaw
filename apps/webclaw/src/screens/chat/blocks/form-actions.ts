@@ -11,7 +11,12 @@ const DEFAULT_FORM_ID = 'form-primary'
 const DEFAULT_FORM_SCHEMA: Array<FormField> = [
   { id: 'name', label: 'Name', type: 'text' },
   { id: 'notes', label: 'Notes', type: 'textarea' },
-  { id: 'status', label: 'Status', type: 'select', options: ['Draft', 'Ready', 'Blocked'] },
+  {
+    id: 'status',
+    label: 'Status',
+    type: 'select',
+    options: ['Draft', 'Ready', 'Blocked'],
+  },
   { id: 'approved', label: 'Approved', type: 'checkbox' },
   { id: 'dueDate', label: 'Due Date', type: 'date' },
 ]
@@ -35,7 +40,9 @@ export function createDefaultFormBlock(): FormBlock {
 }
 
 export function resolveFormBlock(blocks: Array<BlockDocBlock>): FormBlock {
-  const existing = blocks.find((block): block is FormBlock => block.type === 'form')
+  const existing = blocks.find(
+    (block): block is FormBlock => block.type === 'form',
+  )
   if (existing) return existing
   return createDefaultFormBlock()
 }
@@ -83,7 +90,10 @@ export function buildFormMarkdownExport(data: FormBlockData): string {
     .trim()
 }
 
-function formatFormValue(field: FormField, value: FormFieldValue | undefined): string {
+function formatFormValue(
+  field: FormField,
+  value: FormFieldValue | undefined,
+): string {
   if (field.type === 'checkbox') {
     return value === true ? 'true' : 'false'
   }

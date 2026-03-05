@@ -96,7 +96,9 @@ export function useChatStream({
             stateVersion?: unknown
           }
           if (parsed.event === 'chat.history') {
-            const payload = parsed.payload as { messages?: Array<unknown> } | null
+            const payload = parsed.payload as {
+              messages?: Array<unknown>
+            } | null
             if (payload && Array.isArray(payload.messages)) {
               queryClient.setQueryData(
                 chatQueryKeys.history(activeFriendlyId, sessionKeyForHistory),
@@ -127,7 +129,8 @@ export function useChatStream({
               const payloadSource: 'agent' | 'chat' =
                 parsed.event === 'agent' ? 'agent' : 'chat'
               if (streamRunId) {
-                const currentSource = streamRunSourceRef.current.get(streamRunId)
+                const currentSource =
+                  streamRunSourceRef.current.get(streamRunId)
                 if (payloadSource === 'chat' && currentSource === 'agent') {
                   continue
                 }
@@ -143,7 +146,8 @@ export function useChatStream({
               const eventSeq =
                 payloadSource === 'agent'
                   ? payloadSeq
-                  : typeof parsed.seq === 'number' && Number.isFinite(parsed.seq)
+                  : typeof parsed.seq === 'number' &&
+                      Number.isFinite(parsed.seq)
                     ? parsed.seq
                     : undefined
               const eventStateVersion =
@@ -174,21 +178,21 @@ export function useChatStream({
                 continue
               }
 
-            if (
-              shouldSkipStaleRunEvent(
-                streamRunId,
-                eventSeq,
-                eventStateVersion,
-                streamRunSeqRef.current,
-                streamRunStateVersionRef.current,
-              )
-            ) {
-              continue
-            }
+              if (
+                shouldSkipStaleRunEvent(
+                  streamRunId,
+                  eventSeq,
+                  eventStateVersion,
+                  streamRunSeqRef.current,
+                  streamRunStateVersionRef.current,
+                )
+              ) {
+                continue
+              }
 
-            onChatEvent?.(payload)
-            const payloadState =
-              typeof payload.state === 'string' ? payload.state : ''
+              onChatEvent?.(payload)
+              const payloadState =
+                typeof payload.state === 'string' ? payload.state : ''
               if (
                 payloadState === 'final' ||
                 payloadState === 'error' ||
@@ -196,124 +200,142 @@ export function useChatStream({
               ) {
                 refreshHistoryRef.current()
               }
-            if (payload.message && typeof payload.message === 'object') {
-              const payloadSessionKey = payload.sessionKey
-              if (
-                payloadSessionKey &&
-                resolvedSessionKey &&
-                payloadSessionKey !== resolvedSessionKey &&
-                payloadSessionKey !== sessionKeyForHistory
-              ) {
-                continue
-              }
-              const state = typeof payload.state === 'string' ? payload.state : ''
-              const nextMessage: GatewayMessage = {
-                ...payload.message,
-                __streamRunId: streamRunId || undefined,
-              }
+              if (payload.message && typeof payload.message === 'object') {
+                const payloadSessionKey = payload.sessionKey
+                if (
+                  payloadSessionKey &&
+                  resolvedSessionKey &&
+                  payloadSessionKey !== resolvedSessionKey &&
+                  payloadSessionKey !== sessionKeyForHistory
+                ) {
+                  continue
+                }
+                const state =
+                  typeof payload.state === 'string' ? payload.state : ''
+                const nextMessage: GatewayMessage = {
+                  ...payload.message,
+                  __streamRunId: streamRunId || undefined,
+                }
 
                 if (
                   streamRunId &&
-                  (state === 'final' || state === 'error' || state === 'aborted')
+                  (state === 'final' ||
+                    state === 'error' ||
+                    state === 'aborted')
                 ) {
                   streamRunSeqRef.current.delete(streamRunId)
                   streamRunStateVersionRef.current.delete(streamRunId)
                   streamRunSourceRef.current.delete(streamRunId)
                 }
 
-              function upsert(messages: Array<GatewayMessage>) {
-                const lastUserIndex = [...messages]
-                  .reverse()
-                  .findIndex((message) => message.role === 'user')
-                const resolvedLastUserIndex =
-                  lastUserIndex >= 0 ? messages.length - 1 - lastUserIndex : -1
+                function upsert(messages: Array<GatewayMessage>) {
+                  const lastUserIndex = [...messages]
+                    .reverse()
+                    .findIndex((message) => message.role === 'user')
+                  const resolvedLastUserIndex =
+                    lastUserIndex >= 0
+                      ? messages.length - 1 - lastUserIndex
+                      : -1
 
-                const nextId = getMessageId(nextMessage)
-                if (nextId) {
-                  const existingById = messages.findIndex(
-                    (message) => getMessageId(message) === nextId,
-                  )
-                  if (existingById >= 0) {
-                    const next = [...messages]
-                    next[existingById] = mergeStreamMessage(
-                      messages[existingById],
-                      nextMessage,
+                  const nextId = getMessageId(nextMessage)
+                  if (nextId) {
+                    const existingById = messages.findIndex(
+                      (message) => getMessageId(message) === nextId,
                     )
-                    return next
-                  }
-                }
-
-                if (streamRunId) {
-                  const index = findStreamMessageIndex(
-                    messages,
-                    nextMessage,
-                    streamRunId,
-                  )
-                  if (index >= 0) {
-                    if (index > resolvedLastUserIndex) {
+                    if (existingById >= 0) {
                       const next = [...messages]
-                      next[index] = mergeStreamMessage(messages[index], nextMessage)
+                      next[existingById] = mergeStreamMessage(
+                        messages[existingById],
+                        nextMessage,
+                      )
                       return next
                     }
-                    return [...messages, nextMessage]
                   }
-                }
-                if (nextMessage.role === 'assistant') {
-                  const nextTime = getMessageTimestamp(nextMessage)
-                  const index = [...messages]
-                    .reverse()
-                    .findIndex((message) => message.role === 'assistant')
-                  if (index >= 0) {
-                    const target = messages.length - 1 - index
-                    if (target > resolvedLastUserIndex) {
-                      const targetTime = getMessageTimestamp(messages[target])
-                      const targetText = textFromMessage(messages[target])
-                      const nextText = textFromMessage(nextMessage)
-                      const textMatches = shouldMergeAssistantByText(
-                        targetText,
-                        nextText,
-                      )
+
+                  if (streamRunId) {
+                    const index = findStreamMessageIndex(
+                      messages,
+                      nextMessage,
+                      streamRunId,
+                    )
+                    if (index >= 0) {
+                      if (index > resolvedLastUserIndex) {
+                        const next = [...messages]
+                        next[index] = mergeStreamMessage(
+                          messages[index],
+                          nextMessage,
+                        )
+                        return next
+                      }
+                      return [...messages, nextMessage]
+                    }
+                  }
+                  if (nextMessage.role === 'assistant') {
+                    const nextTime = getMessageTimestamp(nextMessage)
+                    const index = [...messages]
+                      .reverse()
+                      .findIndex((message) => message.role === 'assistant')
+                    if (index >= 0) {
+                      const target = messages.length - 1 - index
+                      if (target > resolvedLastUserIndex) {
+                        const targetTime = getMessageTimestamp(messages[target])
+                        const targetText = textFromMessage(messages[target])
+                        const nextText = textFromMessage(nextMessage)
+                        const textMatches = shouldMergeAssistantByText(
+                          targetText,
+                          nextText,
+                        )
+                        if (
+                          Math.abs(nextTime - targetTime) <= 15000 ||
+                          textMatches
+                        ) {
+                          const next = [...messages]
+                          next[target] = mergeStreamMessage(
+                            messages[target],
+                            nextMessage,
+                          )
+                          return next
+                        }
+                      }
                       if (
-                        Math.abs(nextTime - targetTime) <= 15000 || textMatches
+                        resolvedLastUserIndex >= 0 &&
+                        target <= resolvedLastUserIndex
                       ) {
                         const next = [...messages]
-                        next[target] = mergeStreamMessage(messages[target], nextMessage)
+                        next.push(nextMessage)
                         return next
                       }
                     }
-                    if (resolvedLastUserIndex >= 0 && target <= resolvedLastUserIndex) {
-                      const next = [...messages]
-                      next.push(nextMessage)
-                      return next
-                    }
                   }
+                  return [...messages, nextMessage]
                 }
-                return [...messages, nextMessage]
-              }
 
-              updateHistoryMessages(
-                queryClient,
-                activeFriendlyId,
-                sessionKeyForHistory,
-                upsert,
-              )
-              if (payloadSessionKey && payloadSessionKey !== sessionKeyForHistory) {
                 updateHistoryMessages(
                   queryClient,
                   activeFriendlyId,
-                  payloadSessionKey,
+                  sessionKeyForHistory,
                   upsert,
                 )
+                if (
+                  payloadSessionKey &&
+                  payloadSessionKey !== sessionKeyForHistory
+                ) {
+                  updateHistoryMessages(
+                    queryClient,
+                    activeFriendlyId,
+                    payloadSessionKey,
+                    upsert,
+                  )
+                }
+                if (payloadSessionKey) {
+                  updateSessionLastMessage(
+                    queryClient,
+                    payloadSessionKey,
+                    activeFriendlyId,
+                    nextMessage,
+                  )
+                }
               }
-              if (payloadSessionKey) {
-                updateSessionLastMessage(
-                  queryClient,
-                  payloadSessionKey,
-                  activeFriendlyId,
-                  nextMessage,
-                )
-              }
-            }
             }
             return
           }
@@ -375,7 +397,9 @@ function mergeStreamMessage(
   const previousContent = Array.isArray(previousMessage.content)
     ? previousMessage.content
     : []
-  const nextContent = Array.isArray(nextMessage.content) ? nextMessage.content : []
+  const nextContent = Array.isArray(nextMessage.content)
+    ? nextMessage.content
+    : []
 
   if (previousContent.length === 0) {
     return nextMessage
@@ -476,7 +500,9 @@ function findStreamMessageIndex(
 ): number {
   const targetId = getMessageId(targetMessage)
   if (targetId) {
-    const byId = messages.findIndex((message) => getMessageId(message) === targetId)
+    const byId = messages.findIndex(
+      (message) => getMessageId(message) === targetId,
+    )
     if (byId >= 0) return byId
   }
 
@@ -484,7 +510,9 @@ function findStreamMessageIndex(
   const targetToolCallId = normalizeString(targetMessage.toolCallId)
   let index = -1
   messages.forEach((message, currentIndex) => {
-    const runId = normalizeString((message as { __streamRunId?: unknown }).__streamRunId)
+    const runId = normalizeString(
+      (message as { __streamRunId?: unknown }).__streamRunId,
+    )
     if (!runId || runId !== streamRunId) return
     if (normalizeString(message.role) !== targetRole) return
     const messageToolCallId = normalizeString(message.toolCallId)
@@ -546,7 +574,10 @@ function shouldSkipDuplicatePayload(
   return false
 }
 
-function shouldMergeAssistantByText(previousText: string, nextText: string): boolean {
+function shouldMergeAssistantByText(
+  previousText: string,
+  nextText: string,
+): boolean {
   if (!previousText || !nextText) return false
   if (previousText === nextText) return true
 
